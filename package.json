@@ -1,6 +1,6 @@
 {
   "name": "@ls-stack/pdf-page-counter",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Count the pages of a PDF from its page tree, without parsing the whole document",
   "license": "MIT",
   "type": "module",
