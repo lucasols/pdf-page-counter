@@ -1,0 +1,23 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "target": "ESNext",
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "verbatimModuleSyntax": true,
+    "strictNullChecks": true,
+    "noImplicitReturns": true,
+    "noImplicitAny": true,
+    "alwaysStrict": true,
+    "erasableSyntaxOnly": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "forceConsistentCasingInFileNames": true,
+    "strictPropertyInitialization": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*", "tests/**/*", "*.config.ts"]
+}

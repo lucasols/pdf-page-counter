@@ -1,0 +1,5 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "testing.automaticallyOpenPeekView": "never",
+  "typescript.preferences.includePackageJsonAutoImports": "on"
+}
