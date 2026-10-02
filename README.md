@@ -38,21 +38,21 @@ switch (result.status) {
 
 ### Result
 
-| status        | reason                | meaning                                                                                                           |
-| ------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `ok`          |                       | `pages` is the number of leaves in the page tree, which matches the root `/Count`                                 |
-| `unsupported` | `invalid_xref`        | missing `startxref`, broken xref sections, cyclic `/Prev`, more than `maxXrefSections` sections                   |
-|               | `invalid_object`      | an object isn't at its xref offset, `/Root` isn't a `/Catalog`, or a page tree node has no `/Type` name           |
-|               | `syntax_error`        | bytes that can't be tokenized as PDF syntax                                                                       |
-|               | `unsupported_filter`  | a needed stream uses a filter other than FlateDecode, or a predictor other than PNG                               |
-|               | `invalid_stream`      | corrupt FlateDecode data                                                                                          |
-|               | `encrypted`           | a needed object is in an object stream of an encrypted file                                                       |
-|               | `unexpected_error`    | a reader bug, reported instead of thrown                                                                          |
-| `rejected`    | `too_large`           | decoding would exceed `maxInflatedBytes`, or a needed object has more than a million values or 100 nesting levels |
-|               | `too_many_nodes`      | the page tree has more than `maxTreeNodes` nodes                                                                  |
-|               | `malformed_tree`      | `/Kids` cycles, nodes or `/Kids` arrays reached twice, missing nodes, nodes of another type                       |
-|               | `count_mismatch`      | the root `/Count` disagrees with the pages in the tree                                                            |
-|               | `overlapping_objects` | objects share bytes, so every read would walk them again, in full parsers too                                     |
+| status        | reason                | meaning                                                                                                                                             |
+| ------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ok`          |                       | `pages` is the number of leaves in the page tree, which matches the root `/Count`                                                                   |
+| `unsupported` | `invalid_xref`        | missing `startxref`, objects after the last `startxref`, broken xref sections, cyclic `/Prev`, more than `maxXrefSections` sections                 |
+|               | `invalid_object`      | an object isn't at its xref offset, `/Root` isn't a `/Catalog`, or a page tree node is missing from the xref or has no `/Type` name                 |
+|               | `syntax_error`        | bytes that can't be tokenized as PDF syntax, or a keyword, name or number longer than 64 KiB                                                        |
+|               | `unsupported_filter`  | a needed stream uses a filter other than FlateDecode, a predictor other than PNG, or `/DecodeParms` that aren't a direct dictionary of valid values |
+|               | `invalid_stream`      | corrupt FlateDecode data or PNG predictor rows                                                                                                      |
+|               | `encrypted`           | a needed object is in an object stream of an encrypted file                                                                                         |
+|               | `unexpected_error`    | a reader bug, reported instead of thrown                                                                                                            |
+| `rejected`    | `too_large`           | decoding or indexing would exceed `maxInflatedBytes`, or a needed object has more than a million values or 100 nesting levels                       |
+|               | `too_many_nodes`      | the page tree has more than `maxTreeNodes` nodes                                                                                                    |
+|               | `malformed_tree`      | `/Kids` cycles, nodes or `/Kids` arrays reached twice, nodes that aren't dictionaries or are of another type                                        |
+|               | `count_mismatch`      | the root `/Count` disagrees with the pages in the tree                                                                                              |
+|               | `overlapping_objects` | objects share bytes, so every read would walk them again, in full parsers too                                                                       |
 
 Every failure also has a `detail` message for logs.
 
@@ -62,7 +62,7 @@ Files whose offsets are shifted, for example by junk before `%PDF`, return `unsu
 
 ```ts
 getPdfPageCount(data, {
-  maxInflatedBytes: 32 * 1024 * 1024, // decoded bytes across all streams in the call
+  maxInflatedBytes: 32 * 1024 * 1024, // decoded bytes across all streams in the call, plus the xref and object stream header indexes
   maxTreeNodes: 100_000, // /Pages + /Page nodes
   maxXrefSections: 128, // xref sections followed through /Prev and /XRefStm
 });
@@ -72,9 +72,9 @@ Limits that aren't positive integers (`NaN`, `Infinity`, `0`, negative or fracti
 
 ## Limits
 
-- Decoded stream data counts toward `maxInflatedBytes` and is capped while inflating, so a compression bomb stops at the limit instead of being fully inflated. The arrays built from object stream headers count toward it too, before they are allocated.
-- Xref entries are looked up per object from the section data. They are never materialised into a map, so a huge `/Size` or `/Index` costs nothing. Rows of width zero, negative widths, and `/Index` counts larger than the data are refused.
+- Decoded stream data counts toward `maxInflatedBytes` and is capped while inflating, so a compression bomb stops at the limit instead of being fully inflated. The arrays built from xref sections and object stream headers count toward it too, before they are allocated.
+- Xref entries are looked up per object from compact typed arrays, never materialised into a map, so a huge `/Size` or `/Index` count costs nothing. Empty subsections are dropped, and the arrays for the rest count toward `maxInflatedBytes`. Rows of width zero, negative widths, and `/Index` counts larger than the data are refused.
 - A parsed object may hold at most a million values, since a single huge `/Kids` array would otherwise use ~10x its size in memory before any check.
 - The page tree is walked iteratively with a visited set, so deep trees can't overflow the stack.
-- Objects can't share bytes: object stream entries must have distinct offsets and each is parsed only up to the next one, and the total parsed bytes are capped at twice the file plus decoded data, so objects nested in each other's strings can't make the walk quadratic. Overlaps return `rejected`, since full parsers repeat the same work.
+- Objects can't share bytes: object stream entries must have distinct offsets, the ones the page tree reads must end where the next one starts, and the total parsed bytes, including what lookaheads for `num gen R` read before backing off, are capped at twice the file plus decoded data, so objects nested in each other's strings or comments can't make the walk quadratic. Overlaps return `rejected`, since full parsers repeat the same work.
 - Page tree nodes must have `/Type /Pages` or `/Type /Page`, like pdf-lib requires. Nodes without a `/Type` name return `unsupported`.
